@@ -16,6 +16,8 @@
 
 ### 작품 사진
 
+![다운로드](https://github.com/gsg920/project_senser/assets/131341028/2bb813b0-2004-43ec-a6dd-852d70da503f)
+
 ## 동작 시나리오 및 예시
 
 ## 기대 효과
