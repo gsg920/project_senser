@@ -29,29 +29,10 @@ MQTT_KEEPALIVE_INTERVAL = 60
 MQTT_PUB_TOPIC = "mobile/gong/sensing"
 MQTT_SUB_TOPIC = "mobile/gong/LED"
 
-def on_message(client, userdata, message):
-    result = str(message.payload.decode("utf-8"))
-    print(f"received message = {result}")
-    value = json.loads(result)
-    
-    print(value)
-    if value.upper() == "ON":
-        GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
-        GPIO.output(RED_LED_PIN, GPIO.LOW)
-    elif value.upper() == "OFF":
-        GPIO.output(GREEN_LED_PIN, GPIO.LOW)
-        GPIO.output(RED_LED_PIN, GPIO.HIGH)
-    else:
-        print("Illegal Argument")
-    
-client = mqtt.Client()
-client.on_message = on_message
-client.connect(MQTT_HOST, MQTT_PORT,MQTT_KEEPALIVE_INTERVAL)
-client.subscribe(MQTT_SUB_TOPIC)
-client.loop_start()
-
 GPIO.output(RED_LED_PIN, GPIO.HIGH)
 GPIO.output(GREEN_LED_PIN, GPIO.LOW)
+
+onn = 0
 
 # 초음파 감지 함수
 def detect_distance():
@@ -73,6 +54,29 @@ def detect_distance():
     
     return distance
 
+def on_message(client, userdata, message):
+    global onn
+    result = str(message.payload.decode("utf-8"))
+    print(f"received message = {result}")
+    value = json.loads(result)
+    
+    print(value)
+    if value.upper() == "ON":
+        onn = 1
+
+    elif value.upper() == "OFF":
+        GPIO.output(GREEN_LED_PIN, GPIO.LOW)
+        GPIO.output(RED_LED_PIN, GPIO.HIGH)
+        return
+    else:
+        print("Illegal Argument")
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect(MQTT_HOST, MQTT_PORT,MQTT_KEEPALIVE_INTERVAL)
+client.subscribe(MQTT_SUB_TOPIC)
+client.loop_start()
+
 try:
     # MQTT 메시지 루프 시작
     client.loop_start()
@@ -80,7 +84,7 @@ try:
     while True:
         # 초음파 감지
         distance = detect_distance()
-        
+        onni = onn
         if distance < 30:  #초음파 센서 인식 범위 
             time.sleep(10)  # 10초 동안 대기
             
@@ -92,7 +96,7 @@ try:
             buz_pwm.start(1)
             time.sleep(1)  # 1초 동안 부저 울리기
             buz_pwm.stop(1)
-            time.sleep(25) #부저 울리기까지 걸리는 시간
+            time.sleep(5) #부저 울리기까지 걸리는 시간
             
             
             
@@ -110,8 +114,37 @@ try:
             # 빨간 LED 켜기
             GPIO.output(RED_LED_PIN, GPIO.HIGH)
         
+        elif onni > 0:
+            # 초록 LED 켜기, 빨간 LED 끄기, 부저 울리기
+            GPIO.output(GREEN_LED_PIN, GPIO.HIGH)
+            client.publish(MQTT_PUB_TOPIC, "ON")
+            GPIO.output(RED_LED_PIN, GPIO.LOW)
+            GPIO.output(BUZZER_PIN,GPIO.HIGH)
+            buz_pwm.start(1)
+            time.sleep(1)  # 1초 동안 부저 울리기
+            buz_pwm.stop(1)
+            time.sleep(5) #부저 울리기까지 걸리는 시간
+            
+            
+            
+            for _ in range(5): #부저 울리는 시간
+                #p.ChangeFrequency(scale[list[i]])
+                #time.sleep(term[i])
+                time.sleep(0.5)
+                buz_pwm.start(1)
+                time.sleep(0.5)
+                buz_pwm.stop(1)
+            # 초록 LED 끄기
+            GPIO.output(GREEN_LED_PIN, GPIO.LOW)
+            client.publish(MQTT_PUB_TOPIC, "OFF")
+            
+            # 빨간 LED 켜기
+            GPIO.output(RED_LED_PIN, GPIO.HIGH)
+            onn = 0
+            
         time.sleep(0.1)  # 0.1초 대기
-        
+
+
 except KeyboardInterrupt:
     client.loop_stop()
     client.disconnect()
